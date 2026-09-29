@@ -1,0 +1,110 @@
+name: Java CI - Parallel
+
+on:
+  workflow_dispatch:
+    inputs:
+      java-version:
+        type: number
+        required: true
+      build-tool:
+        type: choice
+        options:
+          - maven
+          - gradle
+        required: true
+      build-command:
+        type: string
+        required: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    # Output variable to expose artifact name for deployment jobs
+    outputs:
+      artifact-name: ${{ steps.upload-artifact.outputs.artifact-name }}
+
+    steps:
+      # Checkout source code
+      - uses: actions/checkout@v4
+
+      # Install JDK
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: ${{ inputs.build-tool }}
+
+      # Install Gradle only if selected
+      - name: Setup Gradle
+        if: inputs.build-tool == 'gradle'
+        uses: gradle/actions/setup-gradle@v3
+
+      # Build once (no repeated compilation)
+      - name: Build Application
+        run: |
+          if [ "${{ inputs.build-tool }}" = "maven" ]; then
+            mvn -B ${{ inputs.build-command }}
+          else
+            ./gradlew ${{ inputs.build-command }}
+          fi
+
+      # Upload build output as workflow artifact
+      - name: Upload Build Artifact
+        id: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            **/target/**
+            **/build/**
+        # Expose artifact name as output for deployment jobs
+        # (GitHub automatically sets output "artifact-name")
+      
+      # Run tests, sonar, codeql in parallel (no rebuild)
+      - name: Run Tests, Sonar, CodeQL in Parallel
+        parallel:
+          fail-fast: false
+          steps:
+            # -------------------------
+            # Test Execution
+            # -------------------------
+            - name: Run Tests
+              run: |
+                if [ "${{ inputs.build-tool }}" = "maven" ]; then
+                  mvn -B test
+                else
+                  ./gradlew test
+                fi
+
+            # -------------------------
+            # SonarQube Scan
+            # -------------------------
+            - name: SonarQube Scan
+              env:
+                SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+                SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+              run: |
+                if [ "${{ inputs.build-tool }}" = "maven" ]; then
+                  mvn sonar:sonar \
+                    -Dsonar.projectKey=myproject \
+                    -Dsonar.host.url=$SONAR_HOST_URL \
+                    -Dsonar.login=$SONAR_TOKEN
+                else
+                  ./gradlew sonarqube \
+                    -Dsonar.projectKey=myproject \
+                    -Dsonar.host.url=$SONAR_HOST_URL \
+                    -Dsonar.login=$SONAR_TOKEN
+                fi
+
+            # -------------------------
+            # CodeQL Scan
+            # -------------------------
+            - name: CodeQL Scan
+              run: |
+                codeql database create codeql-db --language=java --source-root=.
+                codeql database analyze codeql-db \
+                  --format=sarifv2 \
+                  --output=codeql-results.sarif \
+                  java-code-scanning.qls
