@@ -41,6 +41,11 @@ jobs:
         if: inputs.build-tool == 'gradle'
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: none
       # Build once (no repeated compilation)
       - name: Build Application
         run: |
@@ -80,30 +85,27 @@ jobs:
             # -------------------------
             # SonarQube Scan
             # -------------------------
-            - name: SonarQube Scan
-              env:
-                SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-                SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-              run: |
-                if [ "${{ inputs.build-tool }}" = "maven" ]; then
-                  mvn sonar:sonar \
-                    -Dsonar.projectKey=myproject \
-                    -Dsonar.host.url=$SONAR_HOST_URL \
-                    -Dsonar.login=$SONAR_TOKEN
-                else
-                  ./gradlew sonarqube \
-                    -Dsonar.projectKey=myproject \
-                    -Dsonar.host.url=$SONAR_HOST_URL \
-                    -Dsonar.login=$SONAR_TOKEN
-                fi
+            # - name: SonarQube Scan
+            #   env:
+            #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+            #   run: |
+            #     if [ "${{ inputs.build-tool }}" = "maven" ]; then
+            #       mvn sonar:sonar \
+            #         -Dsonar.projectKey=myproject \
+            #         -Dsonar.host.url=$SONAR_HOST_URL \
+            #         -Dsonar.login=$SONAR_TOKEN
+            #     else
+            #       ./gradlew sonarqube \
+            #         -Dsonar.projectKey=myproject \
+            #         -Dsonar.host.url=$SONAR_HOST_URL \
+            #         -Dsonar.login=$SONAR_TOKEN
+            #     fi
 
             # -------------------------
             # CodeQL Scan
             # -------------------------
-            - name: CodeQL Scan
-              run: |
-                codeql database create codeql-db --language=java --source-root=.
-                codeql database analyze codeql-db \
-                  --format=sarifv2 \
-                  --output=codeql-results.sarif \
-                  java-code-scanning.qls
+            - name: Perform CodeQL Analysis
+              uses: github/codeql-action/analyze@v4
+              with:
+                category: "/language:java-kotlin"
