@@ -63,10 +63,9 @@ jobs:
         # (GitHub automatically sets output "artifact-name")
       
       # Run tests, sonar, codeql in parallel (no rebuild)
-      - name: Run Tests, Sonar, CodeQL in Parallel
-        parallel:
-          fail-fast: false
-          steps:
+      
+      - parallel:
+      
             # -------------------------
             # Test Execution
             # -------------------------
