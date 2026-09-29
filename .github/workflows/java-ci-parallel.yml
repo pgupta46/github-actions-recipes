@@ -18,6 +18,8 @@ on:
 
 jobs:
   ci:
+    permissions: 
+     security-events: read
     runs-on: ubuntu-latest
 
     # Output variable to expose artifact name for deployment jobs
