@@ -20,6 +20,8 @@ jobs:
      with:
        app-id: ${{ secrets.APP_ID }}
        private-key: ${{ secrets.PRIVATE_KEY }}
+       owner: ${{ inputs.org_name }}
+       repositories: ${{ inputs.repo-name }}
    - name: checkout target repository
      uses: actions/checkout@v6
      with:
