@@ -1,35 +1,113 @@
+# ============================================================================
+# GitHub Actions Workflow: Access Other Repository
+# Author: Prerana Gupta
+# ============================================================================
+# This workflow demonstrates how to securely access another repository
+# within the same organization using a GitHub App token.
+#
+# SETUP INSTRUCTIONS:
+# ============================================================================
+#
+# 1. CREATE A GITHUB APP:
+#    - Go to GitHub Settings > Developer settings > GitHub Apps
+#    - Click "New GitHub App"
+#    - Fill in the App name (e.g., "Cross-Repo-Access-App")
+#    - Set Homepage URL to your repository URL
+#    - Leave Webhook URL empty
+#    - Uncheck "Active" for webhooks (we only need the token generation)
+#    - Under "Repository permissions", select:
+#      * Contents: Read (minimum required)
+#    - Click "Create GitHub App"
+#
+# 2. INSTALL THE GITHUB APP:
+#    - In your GitHub App settings, click "Install App"
+#    - Select the organization where you want to use this app
+#    - Choose "All repositories" or "Only select repositories"
+#    - Click "Install"
+#
+# 3. CONFIGURE SECRETS:
+#    - In your repository, go to Settings > Secrets and variables > Actions
+#    - Add the following secrets:
+#
+#      a) APP_ID:
+#         - Get this from your GitHub App page (shown in the "About" section)
+#         - Example value: 123456
+#         - Add as secret name: APP_ID
+#
+#      b) PRIVATE_KEY:
+#         - In your GitHub App settings, scroll to "Private keys"
+#         - Click "Generate a private key"
+#         - This downloads a .pem file
+#         - Open the .pem file and copy the entire contents (including BEGIN/END lines)
+#         - Add as secret name: PRIVATE_KEY
+#         - Keep this key secure - never commit it to your repository
+#
+# ============================================================================
+
 name: Access-Other-Repository
+
+# Trigger: Manual workflow dispatch
+# User must provide the organization and repository name
 on:
- workflow_dispatch:
-   inputs:
-     repo-name:
-       type: string
-       required: true
-     org_name:
-       type: string
-       required: true
+  workflow_dispatch:
+    inputs:
+      repo-name:
+        type: string
+        description: "Target repository name (e.g., 'my-repo')"
+        required: true
+      org_name:
+        type: string
+        description: "Organization name containing the target repository"
+        required: true
+
 jobs:
- access-repo:
-  permissions: 
-   contents: read
-  runs-on: ubuntu-latest
-  steps:
-   - name: generate github app token
-     id: get_app_token
-     uses: actions/create-github-app-token@v1
-     with:
-       app-id: ${{ secrets.APP_ID }}
-       private-key: ${{ secrets.PRIVATE_KEY }}
-       owner: ${{ inputs.org_name }}
-       repositories: ${{ inputs.repo-name }}
-   - name: checkout target repository
-     uses: actions/checkout@v6
-     with:
-      repository: ${{ inputs.org_name }}/${{ inputs.repo-name }}
-      token: ${{ steps.get_app_token.outputs.token }}
-      path: ${{ inputs.repo-name }}
-      
-   - name: display contents of target repository
-     run: |
-        ls -ltr ${{ inputs.repo-name }}
-     
+  access-repo:
+    # Minimal permissions: only read access to repository contents
+    permissions:
+      contents: read
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Generate a temporary GitHub App token
+      # This token is scoped to the specified repository only
+      # It expires after the workflow completes for security
+      - name: generate github app token
+        id: get_app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          # App ID from GitHub App settings
+          # Store this as a repository secret named APP_ID
+          app-id: ${{ secrets.APP_ID }}
+          
+          # Private key from GitHub App settings
+          # Store this as a repository secret named PRIVATE_KEY
+          # Generate in GitHub App settings > Private keys
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          
+          # Organization that owns the target repository
+          owner: ${{ inputs.org_name }}
+          
+          # Repository name to grant access to
+          repositories: ${{ inputs.repo-name }}
+
+      # Step 2: Checkout the target repository
+      # Uses the generated token for authentication
+      # The 'path' parameter specifies where to clone the repository locally
+      - name: checkout target repository
+        uses: actions/checkout@v6
+        with:
+          # Full repository reference (organization/repository-name)
+          repository: ${{ inputs.org_name }}/${{ inputs.repo-name }}
+          
+          # Use the GitHub App token generated in the previous step
+          token: ${{ steps.get_app_token.outputs.token }}
+          
+          # Directory where the repository will be cloned
+          path: ${{ inputs.repo-name }}
+
+      # Step 3: Display contents of the target repository
+      # This verifies that the checkout was successful
+      - name: display contents of target repository
+        run: |
+          ls -ltr ${{ inputs.repo-name }}
