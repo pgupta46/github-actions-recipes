@@ -29,7 +29,7 @@ jobs:
       token: ${{ steps.get_app_token.outputs.token }}
       path: ${{ inputs.repo-name }}
       
-   - name: checkout ${{ inputs.repo-name }}
+   - name: display contents of target repository
      run: |
-        echo" Checking out ${{ inputs.repo-name }}
+        ls -ltr ${{ inputs.repo-name }}
      
