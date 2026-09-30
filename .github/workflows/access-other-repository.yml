@@ -10,6 +10,8 @@ on:
        required: true
 jobs:
  access-repo:
+  permissions: 
+   contents: read
   runs-on: ubuntu-latest
   steps:
    - name: generate github app token
