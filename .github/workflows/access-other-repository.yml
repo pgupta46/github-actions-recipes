@@ -1,0 +1,31 @@
+name: Access-Other-Repository
+on:
+ workflow_dispatch:
+   inputs:
+     repo-name:
+       type: string
+       required: true
+     org_name:
+       type: string
+       required: true
+jobs:
+ access-repo:
+  runs-on: ubuntu-latest
+  steps:
+   - name: generate github app token
+     id: get_app_token
+     uses: actions/create-github-app-token@v1
+     with:
+       app-id: ${{ secrets.APP_ID }}
+       private-key: ${{ secrets.PRIVATE_KEY }}
+   - name: checkout target repository
+     uses: actions/checkout@v6
+     with:
+      repository: ${{ inputs.org_name }}/${{ inputs.repo-name }}
+      token: ${{ steps.get_app_token.outputs.token }}
+      path: ${{ inputs.repo-name }}
+      
+   - name: checkout ${{ inputs.repo-name }}
+     run: |
+        echo" Checking out ${{ inputs.repo-name }}
+     
